@@ -1,0 +1,316 @@
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.Scanner;
+
+/*
+ * Class: CMSC203 CRN 21305
+ * Instructor: Professor Grigoriy Grinberg
+ * Description: Grade Calculator. Reads a course setup file and one student's
+ *   scores, finds each category average, the weighted overall average and a
+ *   letter grade (optional +/-), then shows the results and saves a report.
+ * Due: 09/07/2026
+ * Platform/compiler: Eclipse IDE, Java 21
+ * I pledge that I have completed the programming assignment
+ *   independently. I have not copied the code from a student or
+ *   any source. I have not given my code to any student.
+ * Print your Name here: Samik Gurung
+ */
+public class GradeCalculator
+{
+    public static void main(String[] args) throws IOException
+    {
+        final String CONFIG_FILE = "gradeconfig.txt";
+        final String INPUT_FILE = "grades_input.txt";
+        final String REPORT_FILE = "grades_report.txt";
+        final String PROGRAMMER = "Samik Gurung";
+
+        File configFile = new File(CONFIG_FILE);
+        boolean useDefault = false;
+        String course = "Default Course";
+        int numCategories = 3;
+
+        if (!configFile.exists())
+        {
+            useDefault = true;
+        }
+        else
+        {
+            Scanner cfg = new Scanner(configFile);
+            boolean ok = true;
+            String courseLine = "";
+            int n = 0;
+            int total = 0;
+
+            if (cfg.hasNextLine())
+            {
+                courseLine = cfg.nextLine();
+            }
+            if (courseLine.length() == 0)
+            {
+                ok = false;
+            }
+
+            if (cfg.hasNextInt())
+            {
+                n = cfg.nextInt();
+            }
+            if (n < 1)
+            {
+                ok = false;
+            }
+
+            for (int i = 1; i <= n && ok; i++)
+            {
+                if (cfg.hasNext())
+                {
+                    cfg.next();
+                }
+                else
+                {
+                    ok = false;
+                }
+
+                if (cfg.hasNextInt())
+                {
+                    int w = cfg.nextInt();
+                    if (w < 0)
+                    {
+                        ok = false;
+                    }
+                    total += w;
+                }
+                else
+                {
+                    ok = false;
+                }
+            }
+            cfg.close();
+
+            if (ok && total == 100)
+            {
+                course = courseLine;
+                numCategories = n;
+            }
+            else
+            {
+                useDefault = true;
+            }
+        }
+
+        if (useDefault)
+        {
+            System.out.println("Configuration file missing or invalid. "
+                    + "Using default configuration (Projects 40, Quizzes 30, Exams 30).");
+        }
+
+        File inputFile = new File(INPUT_FILE);
+        if (!inputFile.exists())
+        {
+            System.out.println("Error: cannot find " + INPUT_FILE + ". Program ending.");
+            return;
+        }
+
+        Scanner in = new Scanner(inputFile);
+        String first = "";
+        String last = "";
+        if (in.hasNext())
+        {
+            first = in.next();
+        }
+        if (in.hasNext())
+        {
+            last = in.next();
+        }
+
+        double weightedSum = 0;
+        String categoryText = "";
+
+        for (int c = 1; c <= numCategories; c++)
+        {
+            if (!in.hasNext())
+            {
+                System.out.println("Error: the score file is missing data. Program ending.");
+                return;
+            }
+            String name = in.next();
+
+            if (!in.hasNextInt())
+            {
+                System.out.println("Error: the number of scores for " + name
+                        + " is not a whole number. Program ending.");
+                return;
+            }
+            int count = in.nextInt();
+
+            int weight = -1;
+            if (useDefault)
+            {
+                if (name.equals("Projects"))
+                {
+                    weight = 40;
+                }
+                else if (name.equals("Quizzes") || name.equals("Exams"))
+                {
+                    weight = 30;
+                }
+            }
+            else
+            {
+                Scanner cfg = new Scanner(configFile);
+                cfg.nextLine();
+                cfg.nextInt();
+                for (int j = 1; j <= numCategories; j++)
+                {
+                    String configCategory = cfg.next();
+                    int configWeight = cfg.nextInt();
+                    if (configCategory.equals(name))
+                    {
+                        weight = configWeight;
+                    }
+                }
+                cfg.close();
+            }
+
+            double sum = 0;
+            int good = 0;
+            for (int s = 1; s <= count; s++)
+            {
+                if (!in.hasNextDouble())
+                {
+                    System.out.println("Error: a score in " + name + " is not a number. Program ending.");
+                    return;
+                }
+                double score = in.nextDouble();
+
+                if (score >= 0 && score <= 100)
+                {
+                    sum += score;
+                    good++;
+                }
+                else
+                {
+                    System.out.println("Warning: ignoring score " + score + " in " + name);
+                }
+            }
+
+            if (weight == -1)
+            {
+                System.out.println("Error: " + name + " is not in the configuration. Skipping it.");
+            }
+            else if (good == 0)
+            {
+                System.out.println("Warning: " + name + " has no valid scores. Skipping it.");
+            }
+            else
+            {
+                double average = sum / good;
+                weightedSum += average * weight;
+
+                int cents = (int) (average * 100 + 0.5);
+                String averageText = (cents / 100) + ".";
+                if (cents % 100 < 10)
+                {
+                    averageText = averageText + "0";
+                }
+                averageText = averageText + (cents % 100);
+
+                categoryText = categoryText + "  " + name + " (" + weight + "%): average = " + averageText + "\n";
+            }
+        }
+        in.close();
+
+        Scanner keyboard = new Scanner(System.in);
+        String answer = "";
+        boolean validAnswer = false;
+
+        while (!validAnswer)
+        {
+            System.out.print("Apply +/- grading? (Y/N): ");
+            answer = keyboard.nextLine();
+
+            if (answer.equals("Y") || answer.equals("y") || answer.equals("N") || answer.equals("n"))
+            {
+                validAnswer = true;
+            }
+            else
+            {
+                System.out.println("Invalid entry. Please enter Y or N.");
+            }
+        }
+
+        double overall = weightedSum / 100;
+
+        String letter;
+        double bandStart;
+        if (overall >= 90)
+        {
+            letter = "A";
+            bandStart = 90;
+        }
+        else if (overall >= 80)
+        {
+            letter = "B";
+            bandStart = 80;
+        }
+        else if (overall >= 70)
+        {
+            letter = "C";
+            bandStart = 70;
+        }
+        else if (overall >= 60)
+        {
+            letter = "D";
+            bandStart = 60;
+        }
+        else
+        {
+            letter = "F";
+            bandStart = 0;
+        }
+
+        if ((answer.equals("Y") || answer.equals("y")) && !letter.equals("F"))
+        {
+            double pointsIntoBand = overall - bandStart;
+            if (pointsIntoBand >= 7)
+            {
+                letter = letter + "+";
+            }
+            else if (pointsIntoBand < 3)
+            {
+                letter = letter + "-";
+            }
+        }
+
+        int overallCents = (int) (weightedSum + 0.5);
+        String overallText = (overallCents / 100) + ".";
+        if (overallCents % 100 < 10)
+        {
+            overallText = overallText + "0";
+        }
+        overallText = overallText + (overallCents % 100);
+
+        String defaultText = "No";
+        if (useDefault)
+        {
+            defaultText = "Yes";
+        }
+
+        String report = "Course: " + course + "\n"
+                + "Student: " + first + " " + last + "\n"
+                + "Default configuration used: " + defaultText + "\n"
+                + "Category Results:\n"
+                + categoryText
+                + "Overall numeric average: " + overallText + "\n"
+                + "Final letter grade: " + letter + "\n"
+                + "Programmed by: " + PROGRAMMER + "\n";
+
+        System.out.println();
+        System.out.print(report);
+
+        PrintWriter out = new PrintWriter(REPORT_FILE);
+        out.print(report);
+        out.close();
+        System.out.println("Report saved to " + REPORT_FILE);
+    }
+}
